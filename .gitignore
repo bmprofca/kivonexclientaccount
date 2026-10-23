@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+ui-test-failure.png
+# Local settings and secrets: never committed
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store

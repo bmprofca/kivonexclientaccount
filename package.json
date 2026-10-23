@@ -1,0 +1,28 @@
+{
+  "name": "kivonex-account",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kivonex account panel: customers sign in, buy a plan and see their subscription, computers, payments and invoices",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "test:ui": "node scripts/ui-test.mjs"
+  },
+  "dependencies": {
+    "@ant-design/icons": "6.1.0",
+    "antd": "6.6.5",
+    "dayjs": "1.11.23",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "5.1.4",
+    "playwright-core": "1.55.1",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  }
+}
