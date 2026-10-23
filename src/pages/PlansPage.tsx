@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { CheckCircleFilled, CheckOutlined, FileTextOutlined } from '@ant-design/icons'
 import { Alert, App, Button, Modal, Tag } from 'antd'
@@ -179,7 +180,7 @@ export function PlansPage({ go, me }: PageProps) {
       {plans.data && plans.data.length === 0 && <div className="panel panel-body muted-text">No plans are on sale right now. Please check again later.</div>}
       <p className="fine-print">
         Payments are handled by Razorpay. Your card and UPI details go to Razorpay only, never to Kivonex. Add your GSTIN and billing address in{' '}
-        <a href="#/profile">Profile</a> before you pay to have them on the invoice.
+        <Link to="/profile">Profile</Link> before you pay to have them on the invoice.
       </p>
 
       <PaidDialog payment={paid} onClose={() => setPaid(null)} onInvoice={(payment) => go('invoices', payment.id)} />

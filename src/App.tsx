@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { AppstoreOutlined, CreditCardOutlined, LogoutOutlined, MenuOutlined, ShoppingOutlined, UserOutlined } from '@ant-design/icons'
 import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, type MenuProps } from 'antd'
 import { getToken, loadMe, signOut as endSession, type Me } from './api'
@@ -34,10 +35,16 @@ const PAGES: Record<Page, PageInfo> = {
 
 const SECTIONS = ['My account', 'Settings']
 
-/** The page is kept in the address (#/plans, #/invoices/<payment id>), so a reload or a shared link opens it again. */
-function routeFromHash(): { page: Page; sub: string } {
-  const [name = '', sub = ''] = window.location.hash.replace(/^#\/?/, '').split('/')
-  return name in PAGES ? { page: name as Page, sub } : { page: 'overview', sub: '' }
+/** The page in the address (/plans, /invoices/<payment id>), so a reload or a shared link opens it again. */
+function pageOf(pathname: string): Page {
+  const name = pathname.split('/')[1] ?? ''
+  return name in PAGES ? (name as Page) : 'overview'
+}
+
+/** One page of the panel, with the part of it named in the address (an invoice's payment id). */
+function PageRoute({ page, go, me }: { page: Page; go: Go; me: Loaded<Me> }) {
+  const { sub = '' } = useParams()
+  return <>{PAGES[page].render({ go, sub, me })}</>
 }
 
 const NAV: MenuProps['items'] = SECTIONS.map((section) => ({
@@ -51,6 +58,7 @@ const NAV: MenuProps['items'] = SECTIONS.map((section) => ({
 
 export function App() {
   const [token, setSignedIn] = useState<string | null>(getToken())
+  const navigate = useNavigate()
 
   useEffect(() => {
     const onUnauthorized = () => setSignedIn(null)
@@ -63,7 +71,7 @@ export function App() {
       <LoginPage
         onSignedIn={(value) => {
           // Every sign-in starts on the overview.
-          window.location.hash = '/overview'
+          navigate('/overview', { replace: true })
           setSignedIn(value)
         }}
       />
@@ -74,8 +82,8 @@ export function App() {
 
 /** The signed-in panel: the menu at the side (a drawer on phones), the top bar, and the open page. */
 function Shell({ onSignedOut }: { onSignedOut: () => void }) {
-  const [route, setRoute] = useState(routeFromHash())
-  const { page, sub } = route
+  const navigate = useNavigate()
+  const page = pageOf(useLocation().pathname)
   const [menuOpen, setMenuOpen] = useState(false)
   const me = useLoad(loadMe)
   const screens = Grid.useBreakpoint()
@@ -83,25 +91,18 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const account = me.data?.account
 
   useEffect(() => {
-    const onHash = () => setRoute(routeFromHash())
-    window.addEventListener('hashchange', onHash)
-    return () => window.removeEventListener('hashchange', onHash)
-  }, [])
-
-  useEffect(() => {
     document.title = `${PAGES[page].title} · Kivonex`
   }, [page])
 
   const go: Go = (next, nextSub = '') => {
-    window.location.hash = nextSub ? `/${next}/${nextSub}` : `/${next}`
-    setRoute({ page: next, sub: nextSub })
+    navigate(nextSub ? `/${next}/${nextSub}` : `/${next}`)
     setMenuOpen(false)
     window.scrollTo({ top: 0 })
   }
 
   const signOut = async () => {
     await endSession()
-    window.location.hash = ''
+    navigate('/', { replace: true })
     onSignedOut()
   }
 
@@ -155,7 +156,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
             <span className="crumbs">
               {page === 'invoices' ? (
                 <>
-                  <a href="#/billing">Billing</a> / <b>Invoice</b>
+                  <Link to="/billing">Billing</Link> / <b>Invoice</b>
                 </>
               ) : (
                 <>
@@ -195,7 +196,16 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
             </div>
           </Dropdown>
         </Header>
-        <Content className="content">{PAGES[page].render({ go, sub, me })}</Content>
+        <Content className="content">
+          <Routes>
+            <Route path="/overview" element={<PageRoute page="overview" go={go} me={me} />} />
+            <Route path="/plans" element={<PageRoute page="plans" go={go} me={me} />} />
+            <Route path="/billing" element={<PageRoute page="billing" go={go} me={me} />} />
+            <Route path="/invoices/:sub" element={<PageRoute page="invoices" go={go} me={me} />} />
+            <Route path="/profile" element={<PageRoute page="profile" go={go} me={me} />} />
+            <Route path="*" element={<Navigate to="/overview" replace />} />
+          </Routes>
+        </Content>
       </Layout>
     </Layout>
   )

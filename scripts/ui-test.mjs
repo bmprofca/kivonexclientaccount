@@ -23,13 +23,13 @@ const RAZORPAY_KEY_ID = 'rzp_test_KivonexUi'
 const BRAND = '#4f46e5'
 
 const children = []
-function start(command, args, cwd, env, ready) {
+function start(command, args, cwd, env, ready, timeoutMs = 60000) {
   return new Promise((resolve, reject) => {
-    // Its own process group, so stopping it also stops what npx started (tsx, vite).
+    // Its own process group, so stopping it also stops what npx started (tsx, react-scripts).
     const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
     children.push(child)
     let output = ''
-    const timer = setTimeout(() => reject(new Error(`${command} ${args.join(' ')} did not start:\n${output}`)), 60000)
+    const timer = setTimeout(() => reject(new Error(`${command} ${args.join(' ')} did not start:\n${output}`)), timeoutMs)
     const onData = (data) => {
       output += data
       if (ready.test(output)) {
@@ -123,16 +123,25 @@ async function noSideScroll(page) {
   return page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
 }
 
+/** Opens a page of the panel by its address, in the app (the router follows it), as a click on a link would. */
+function openPath(page, path) {
+  return page.evaluate((to) => {
+    window.history.pushState({}, '', to)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, path)
+}
+
 /** Opens a page by its address and checks that skeletons show before the data. */
 async function openWithSkeleton(page, hash, selector, label) {
-  await page.evaluate((value) => (window.location.hash = value), hash)
+  await openPath(page, hash)
   check(await seen(page.locator(selector), 3000), `${label}: skeleton shows while loading`)
 }
 
 let browser
 try {
   await start('npx', ['tsx', 'test/ui-server.ts'], BACKEND_DIR, { PORT: String(API_PORT), ADMIN_FIXED_CODE: CODE, UI_DELAY_MS: process.env.UI_DELAY_MS ?? '400' }, /UI_SERVER_READY/)
-  await start('npx', ['vite', '--port', String(WEB_PORT)], APP_DIR, { KIVONEX_API: API, PORT: String(WEB_PORT) }, /Local:/)
+  // Create React App's development server (its first build takes a while).
+  await start('npx', ['react-scripts', 'start'], APP_DIR, { KIVONEX_API: API, PORT: String(WEB_PORT), HOST: '127.0.0.1', BROWSER: 'none' }, /Compiled successfully|compiled successfully/, 180000)
 
   // ---- the API keeps the code when a new number has no name yet (the panel relies on it)
   console.log('API: new number without a name')
@@ -205,7 +214,7 @@ try {
   // ---- profile (billing details go on the invoice, so they are set before buying)
   console.log('Profile')
   // The account is loaded once for the whole panel, so the form shows at once here (its skeleton is checked on reload).
-  await page.evaluate(() => (window.location.hash = '#/profile'))
+  await openPath(page, '/profile')
   await page.getByLabel('Billing name').waitFor()
   check((await page.getByLabel('Mobile number').inputValue()) === '+91 98765 01234', 'The mobile number is shown')
   check(await page.getByLabel('Mobile number').isDisabled(), 'and cannot be changed here')
@@ -230,7 +239,7 @@ try {
 
   // ---- plans
   console.log('Plans')
-  await openWithSkeleton(page, '#/plans', '.plan-card .bone', 'Plan cards')
+  await openWithSkeleton(page, '/plans', '.plan-card .bone', 'Plan cards')
   await page.getByRole('heading', { name: 'Pro' }).waitFor()
   check(await page.getByText('₹4,999', { exact: true }).isVisible(), 'Basic costs ₹4,999')
   check(await page.getByText('₹9,999', { exact: true }).isVisible(), 'Pro costs ₹9,999')
@@ -288,7 +297,7 @@ try {
 
   // ---- overview with the plan
   console.log('Overview with Pro')
-  await page.evaluate(() => (window.location.hash = '#/overview'))
+  await openPath(page, '/overview')
   await page.locator('.plan-name', { hasText: 'Pro' }).waitFor()
   check(await page.locator('.plan-name').getByText('Active').isVisible(), 'Pro is active')
   check((await page.getByTestId('valid-till').textContent()) === show(proValidTill), `Valid till ${show(proValidTill)} on the overview`)
@@ -297,7 +306,7 @@ try {
 
   // ---- a checkout closed, and a declined card
   console.log('Checkout closed or failed')
-  await page.evaluate(() => (window.location.hash = '#/plans'))
+  await openPath(page, '/plans')
   check(await seen(page.getByText(`A plan you buy now is added after it ends: it starts on ${show(addDays(proValidTill, 1))}`)), 'Plans: a purchase is added after the current plan ends')
   await page.evaluate(() => (window.__rzpMode = 'dismiss'))
   await page.getByRole('button', { name: 'Renew Pro' }).click()
@@ -309,7 +318,7 @@ try {
 
   // ---- billing
   console.log('Billing')
-  await openWithSkeleton(page, '#/billing', '.table-skeleton .bone', 'Payments table')
+  await openWithSkeleton(page, '/billing', '.table-skeleton .bone', 'Payments table')
   await page.getByText(invoiceNumber).waitFor()
   const rows = page.locator('.ant-table-tbody .ant-table-row')
   check((await rows.count()) === 3, 'Three payments listed')
@@ -328,8 +337,8 @@ try {
   // ---- phone width
   console.log('Phone width')
   await page.setViewportSize({ width: 390, height: 844 })
-  for (const hash of ['#/invoices/' + page.url().split('/').pop(), '#/overview', '#/plans', '#/billing', '#/profile']) {
-    await page.evaluate((value) => (window.location.hash = value), hash)
+  for (const hash of ['/invoices/' + page.url().split('/').pop(), '/overview', '/plans', '/billing', '/profile']) {
+    await openPath(page, hash)
     await page.waitForTimeout(1200)
     check(await noSideScroll(page), `${hash.split('/')[1]}: no sideways scroll on a phone`)
   }

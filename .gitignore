@@ -1,11 +1,18 @@
-node_modules/
-dist/
-*.log
-ui-test-failure.png
-# Local settings and secrets: never committed
+# dependencies
+/node_modules
+
+# production build
+/build
+
+# local settings and secrets: never committed (.env.development holds only the dev server address)
 .env
-.env.*
-!.env.example
+.env.local
+.env.*.local
+.env.production
 *.pem
 *.key
+
+# logs and test leftovers
+*.log
+ui-test-failure.png
 .DS_Store

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { FileTextOutlined, ShoppingOutlined } from '@ant-design/icons'
 import { Button } from 'antd'
 import type { PageProps } from '../App'
@@ -59,7 +60,7 @@ export function BillingPage({ go }: PageProps) {
               title: 'Invoice',
               dataIndex: 'invoiceNumber',
               width: 170,
-              render: (value: string | null, row: Payment) => (value ? <a href={`#/invoices/${row.id}`}>{value}</a> : <span className="muted-text">—</span>)
+              render: (value: string | null, row: Payment) => (value ? <Link to={`/invoices/${row.id}`}>{value}</Link> : <span className="muted-text">—</span>)
             },
             {
               title: '',

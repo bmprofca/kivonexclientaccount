@@ -2,9 +2,9 @@ const TOKEN_KEY = 'kivonex-account-token'
 
 /**
  * Where the Kivonex Cloud API is. Blank (the default) means this site's own /v1, which the dev server forwards;
- * a build served on its own address sets VITE_KIVONEX_API (e.g. https://api.kivonex.in) when building.
+ * a build served on its own address sets REACT_APP_KIVONEX_API (e.g. https://api.kivonex.in) when building.
  */
-const API_BASE = (import.meta.env.VITE_KIVONEX_API ?? '').replace(/\/+$/, '')
+const API_BASE = (process.env.REACT_APP_KIVONEX_API ?? '').replace(/\/+$/, '')
 
 /** Billing details: they go on every invoice made after they are saved. */
 export type Billing = {

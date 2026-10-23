@@ -3,26 +3,61 @@
   "version": "0.1.0",
   "private": true,
   "description": "Kivonex account panel: customers sign in, buy a plan and see their subscription, computers, payments and invoices",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build",
-    "test:ui": "node scripts/ui-test.mjs"
-  },
   "dependencies": {
-    "@ant-design/icons": "6.1.0",
-    "antd": "6.6.5",
-    "dayjs": "1.11.23",
-    "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "@ant-design/icons": "^6.1.0",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^13.5.0",
+    "@types/jest": "^27.5.2",
+    "@types/node": "^16.18.126",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "antd": "^6.6.5",
+    "dayjs": "^1.11.23",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.4",
+    "react-scripts": "5.0.1",
+    "typescript": "^4.9.5"
   },
   "devDependencies": {
-    "@types/react": "19.2.2",
-    "@types/react-dom": "19.2.2",
-    "@vitejs/plugin-react": "5.1.4",
-    "playwright-core": "1.55.1",
-    "typescript": "5.9.3",
-    "vite": "7.3.7"
+    "http-proxy-middleware": "^2.0.10",
+    "playwright-core": "^1.55.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "typecheck": "tsc --noEmit",
+    "test:ui": "node scripts/ui-test.mjs"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js",
+      "^react-router$": "<rootDir>/node_modules/react-router/dist/development/index.js",
+      "^@rc-component/pagination/locale/(.*)$": "<rootDir>/node_modules/@rc-component/pagination/lib/locale/$1",
+      "^@rc-component/picker/locale/(.*)$": "<rootDir>/node_modules/@rc-component/picker/lib/locale/$1",
+      "^@rc-component/picker/generate/(.*)$": "<rootDir>/node_modules/@rc-component/picker/lib/generate/$1",
+      "^@rc-component/picker/generate$": "<rootDir>/node_modules/@rc-component/picker/lib/generate/index.js"
+    }
   }
 }
