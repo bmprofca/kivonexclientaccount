@@ -139,7 +139,7 @@ async function openWithSkeleton(page, hash, selector, label) {
 
 let browser
 try {
-  await start('npx', ['tsx', 'test/ui-server.ts'], BACKEND_DIR, { PORT: String(API_PORT), ADMIN_FIXED_CODE: CODE, UI_DELAY_MS: process.env.UI_DELAY_MS ?? '400' }, /UI_SERVER_READY/)
+  await start('node', ['test/ui-server.js'], BACKEND_DIR, { PORT: String(API_PORT), ADMIN_FIXED_CODE: CODE, UI_DELAY_MS: process.env.UI_DELAY_MS ?? '400' }, /UI_SERVER_READY/)
   // Create React App's development server (its first build takes a while).
   await start('npx', ['react-scripts', 'start'], APP_DIR, { KIVONEX_API: API, PORT: String(WEB_PORT), HOST: '127.0.0.1', BROWSER: 'none' }, /Compiled successfully|compiled successfully/, 180000)
 
