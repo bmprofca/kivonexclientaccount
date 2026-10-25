@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { AppstoreOutlined, CreditCardOutlined, LogoutOutlined, MenuOutlined, ShoppingOutlined, UserOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, CreditCardOutlined, LogoutOutlined, MenuOutlined, ShoppingOutlined, UserOutlined, WalletOutlined } from '@ant-design/icons'
 import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, type MenuProps } from 'antd'
 import { getToken, loadMe, signOut as endSession, type Me } from './api'
 import { Bone } from './components'
@@ -11,10 +11,11 @@ import { LoginPage } from './pages/LoginPage'
 import { OverviewPage } from './pages/OverviewPage'
 import { PlansPage } from './pages/PlansPage'
 import { ProfilePage } from './pages/ProfilePage'
+import { WalletPage } from './pages/WalletPage'
 
 const { Sider, Header, Content } = Layout
 
-export type Page = 'overview' | 'plans' | 'billing' | 'invoices' | 'profile'
+export type Page = 'overview' | 'plans' | 'wallet' | 'billing' | 'invoices' | 'profile'
 
 /** Opens a page, optionally one item of it (an invoice is go('invoices', paymentId)). */
 export type Go = (page: Page, sub?: string) => void
@@ -27,6 +28,7 @@ type PageInfo = { title: string; section: string; icon: ReactNode; nav: boolean;
 const PAGES: Record<Page, PageInfo> = {
   overview: { title: 'Overview', section: 'My account', icon: <AppstoreOutlined />, nav: true, render: (props) => <OverviewPage {...props} /> },
   plans: { title: 'Plans', section: 'My account', icon: <ShoppingOutlined />, nav: true, render: (props) => <PlansPage {...props} /> },
+  wallet: { title: 'Wallet', section: 'My account', icon: <WalletOutlined />, nav: true, render: (props) => <WalletPage {...props} /> },
   billing: { title: 'Billing', section: 'My account', icon: <CreditCardOutlined />, nav: true, render: (props) => <BillingPage {...props} /> },
   // An invoice opens from Billing; it is not in the menu.
   invoices: { title: 'Invoice', section: 'Billing', icon: <CreditCardOutlined />, nav: false, render: (props) => <InvoicePage {...props} /> },
@@ -200,6 +202,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           <Routes>
             <Route path="/overview" element={<PageRoute page="overview" go={go} me={me} />} />
             <Route path="/plans" element={<PageRoute page="plans" go={go} me={me} />} />
+            <Route path="/wallet" element={<PageRoute page="wallet" go={go} me={me} />} />
             <Route path="/billing" element={<PageRoute page="billing" go={go} me={me} />} />
             <Route path="/invoices/:sub" element={<PageRoute page="invoices" go={go} me={me} />} />
             <Route path="/profile" element={<PageRoute page="profile" go={go} me={me} />} />

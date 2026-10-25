@@ -110,6 +110,13 @@ export type CheckoutOptions = {
   prefill: { name: string; contact: string; email: string }
 }
 
+export type WalletSummary = { balancePaise: number; reservedPaise: number; availablePaise: number; currency: 'INR' }
+export type EffectiveOperationPrice = { code: string; label: string; service: string; category: string; group: string; globalPricePaise: number | null; overridePricePaise: number | null; effectivePricePaise: number | null; source: 'global' | 'account' | 'missing' }
+export type WalletView = { wallet: WalletSummary; prices: EffectiveOperationPrice[]; topupSettings: { presetsPaise: number[]; minPaise: number; maxPaise: number } }
+export type WalletTransaction = { id: string; direction: 'credit' | 'debit'; type: string; amountPaise: number; balanceAfterPaise: number; operation?: string; apiCallId?: string; note?: string; createdAt: string }
+export type WalletUsageEvent = { id: string; operation: string; label?: string; service?: string; category?: string; pricePaise: number; priceSource: string; status: string; providerRequestId: string; errorCode: string; errorMessage: string; createdAt: string; completedAt: string | null; response?: unknown }
+export type WalletTopup = { id: string; amountPaise: number; currency: 'INR'; status: 'created' | 'paid' | 'failed'; razorpayOrderId: string; razorpayPaymentId: string | null; failureReason: string | null; createdAt: string; paidAt: string | null }
+
 export type Invoice = {
   number: string
   /** The day it was paid. */
@@ -220,3 +227,11 @@ export function verifyPayment(
 export function failPayment(paymentId: string, reason: string): Promise<{ payment: Payment }> {
   return api(`/v1/account/orders/${paymentId}/fail`, { method: 'POST', body: JSON.stringify({ reason }) })
 }
+
+export const loadWallet = (): Promise<WalletView> => api('/v1/account/wallet')
+export const loadWalletTransactions = (): Promise<{ transactions: WalletTransaction[] }> => api('/v1/account/wallet/transactions')
+export const loadWalletUsage = (): Promise<{ usage: WalletUsageEvent[] }> => api('/v1/account/wallet/usage')
+export const loadWalletUsageDetail = (id: string): Promise<{ usage: WalletUsageEvent }> => api(`/v1/account/wallet/usage/${id}`)
+export const createWalletTopup = (amountPaise: number): Promise<{ topup: WalletTopup; checkout: CheckoutOptions }> => api('/v1/account/wallet/orders', { method: 'POST', body: JSON.stringify({ amountPaise }) })
+export const verifyWalletTopup = (id: string, input: { razorpayPaymentId: string; razorpaySignature: string }): Promise<{ topup: WalletTopup } & WalletView> => api(`/v1/account/wallet/orders/${id}/verify`, { method: 'POST', body: JSON.stringify(input) })
+export const failWalletTopup = (id: string, reason: string): Promise<{ topup: WalletTopup }> => api(`/v1/account/wallet/orders/${id}/fail`, { method: 'POST', body: JSON.stringify({ reason }) })
