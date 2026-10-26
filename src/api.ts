@@ -111,10 +111,10 @@ export type CheckoutOptions = {
 }
 
 export type WalletSummary = { balancePaise: number; reservedPaise: number; availablePaise: number; currency: 'INR' }
-export type EffectiveOperationPrice = { code: string; label: string; service: string; category: string; group: string; globalPricePaise: number | null; overridePricePaise: number | null; effectivePricePaise: number | null; source: 'global' | 'account' | 'missing' }
+export type EffectiveOperationPrice = { code: string; label: string; category: string; group: string; globalPricePaise: number | null; overridePricePaise: number | null; effectivePricePaise: number | null; source: 'global' | 'account' | 'missing' }
 export type WalletView = { wallet: WalletSummary; prices: EffectiveOperationPrice[]; topupSettings: { presetsPaise: number[]; minPaise: number; maxPaise: number } }
 export type WalletTransaction = { id: string; direction: 'credit' | 'debit'; type: string; amountPaise: number; balanceAfterPaise: number; operation?: string; apiCallId?: string; note?: string; createdAt: string }
-export type WalletUsageEvent = { id: string; operation: string; label?: string; service?: string; category?: string; pricePaise: number; priceSource: string; status: string; providerRequestId: string; errorCode: string; errorMessage: string; createdAt: string; completedAt: string | null; response?: unknown }
+export type WalletUsageEvent = { id: string; operation: string; label?: string; category?: string; gstin?: string; pricePaise: number; priceSource: string; status: string; providerRequestId: string; httpStatus?: number | null; errorCode: string; errorMessage: string; createdAt: string; completedAt: string | null; request?: unknown; response?: unknown }
 export type WalletTopup = { id: string; amountPaise: number; currency: 'INR'; status: 'created' | 'paid' | 'failed'; razorpayOrderId: string; razorpayPaymentId: string | null; failureReason: string | null; createdAt: string; paidAt: string | null }
 
 export type Invoice = {
@@ -230,6 +230,7 @@ export function failPayment(paymentId: string, reason: string): Promise<{ paymen
 
 export const loadWallet = (): Promise<WalletView> => api('/v1/account/wallet')
 export const loadWalletTransactions = (): Promise<{ transactions: WalletTransaction[] }> => api('/v1/account/wallet/transactions')
+export const loadWalletTransactionDetail = (id: string): Promise<{ transaction: WalletTransaction; usage: WalletUsageEvent | null }> => api(`/v1/account/wallet/transactions/${id}`)
 export const loadWalletUsage = (): Promise<{ usage: WalletUsageEvent[] }> => api('/v1/account/wallet/usage')
 export const loadWalletUsageDetail = (id: string): Promise<{ usage: WalletUsageEvent }> => api(`/v1/account/wallet/usage/${id}`)
 export const createWalletTopup = (amountPaise: number): Promise<{ topup: WalletTopup; checkout: CheckoutOptions }> => api('/v1/account/wallet/orders', { method: 'POST', body: JSON.stringify({ amountPaise }) })
