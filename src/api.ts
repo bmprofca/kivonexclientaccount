@@ -72,6 +72,12 @@ export type Plan = {
   description: string
   /** Amount charged, GST included. */
   pricePaise: number
+  mrpPaise: number
+  discountPercent: number
+  discountPaise: number
+  gstRate: number
+  taxablePaise: number
+  gstPaise: number
   durationMonths: number
   devices: number
   entitlements: string[]
@@ -128,6 +134,9 @@ export type Invoice = {
   seller: { name: string; gstin: string; address: string; state: string }
   buyer: Billing & { mobile: string }
   line: { description: string; amountPaise: number }
+  /** MRP and the discount off it; discount 0 on payments with no discount (or made before plans had an MRP). */
+  mrpPaise: number
+  discountPaise: number
   taxablePaise: number
   gstRate: number
   cgstPaise: number

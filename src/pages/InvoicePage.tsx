@@ -152,6 +152,18 @@ export function InvoicePage({ go, sub }: PageProps) {
             </div>
             <table className="invoice-totals">
               <tbody>
+                {invoice.discountPaise > 0 && (
+                  <>
+                    <tr>
+                      <th>MRP</th>
+                      <td className="num">{money(invoice.mrpPaise)}</td>
+                    </tr>
+                    <tr>
+                      <th>Discount</th>
+                      <td className="num">− {money(invoice.discountPaise)}</td>
+                    </tr>
+                  </>
+                )}
                 <tr>
                   <th>Taxable value</th>
                   <td className="num">{money(invoice.taxablePaise)}</td>

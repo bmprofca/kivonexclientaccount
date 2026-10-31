@@ -147,16 +147,22 @@ export function PlansPage({ go, me }: PageProps) {
                     )}
                   </div>
                   {plan.description && <p className="plan-card-desc">{plan.description}</p>}
+                  {plan.discountPercent > 0 && <div className="portal-plan-offer"><s>{formatMoney(plan.mrpPaise)}</s><Tag color="green" variant="filled">{plan.discountPercent}% off</Tag></div>}
                   <div className="plan-price">
                     <span className="num">{formatMoney(plan.pricePaise)}</span>
                     <small>for {months(plan.durationMonths)}</small>
                   </div>
+                  <dl className="portal-price-breakdown">
+                    {plan.discountPercent > 0 && <div><dt>Discount</dt><dd>− {formatMoney(plan.discountPaise)}</dd></div>}
+                    <div><dt>Taxable value</dt><dd>{formatMoney(plan.taxablePaise)}</dd></div>
+                    <div><dt>GST ({plan.gstRate}%)</dt><dd>{formatMoney(plan.gstPaise)}</dd></div>
+                  </dl>
                   <ul className="plan-points">
                     <li>
                       <CheckOutlined /> {computers(plan.devices)} at a time
                     </li>
                     <li>
-                      <CheckOutlined /> GST included
+                      <CheckOutlined /> Final price includes GST
                     </li>
                     <li>
                       <CheckOutlined /> Starts {startsOn === todayIso() ? 'today' : `on ${formatDate(startsOn)}`}

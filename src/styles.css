@@ -1282,6 +1282,11 @@ form + .panel,
   color: var(--muted);
   font-size: 13.5px;
 }
+.portal-plan-offer { display: flex; align-items: center; gap: 8px; margin-top: 14px; color: var(--muted); }
+.portal-price-breakdown { display: grid; gap: 5px; margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--soft); font-size: 12px; }
+.portal-price-breakdown div { display: flex; justify-content: space-between; gap: 16px; }
+.portal-price-breakdown dt { color: var(--muted); }
+.portal-price-breakdown dd { margin: 0; font-weight: 600; }
 
 .plan-points {
   display: grid;

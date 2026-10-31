@@ -88,7 +88,7 @@ export function ProfilePage({ me }: PageProps) {
               <div>
                 <div className="form-row">
                   <Form.Item label="Name" name="name" rules={[{ required: true, whitespace: true, message: 'Enter your name.' }]}>
-                    <Input maxLength={120} autoComplete="name" />
+                    <Input placeholder="Your full name" maxLength={120} autoComplete="name" />
                   </Form.Item>
                   <Form.Item label="Trade name" name="tradeName">
                     <Input maxLength={160} autoComplete="organization" placeholder="Your business or firm name" />
@@ -109,7 +109,7 @@ export function ProfilePage({ me }: PageProps) {
               <div>
                 <div className="form-row">
                   <Form.Item label="Billing name" name={['billing', 'name']} extra="Your business name. Leave blank to use your own name.">
-                    <Input maxLength={120} autoComplete="organization" />
+                    <Input placeholder="Name to print on invoices" maxLength={120} autoComplete="organization" />
                   </Form.Item>
                   <Form.Item
                     label="GSTIN"
@@ -121,7 +121,7 @@ export function ProfilePage({ me }: PageProps) {
                   </Form.Item>
                 </div>
                 <Form.Item label="Address" name={['billing', 'address']}>
-                  <Input.TextArea maxLength={400} autoSize={{ minRows: 2, maxRows: 5 }} autoComplete="street-address" />
+                  <Input.TextArea placeholder="Building, street, city, PIN code" maxLength={400} autoSize={{ minRows: 2, maxRows: 5 }} autoComplete="street-address" />
                 </Form.Item>
                 <Form.Item label="State" name={['billing', 'state']}>
                   <Select
