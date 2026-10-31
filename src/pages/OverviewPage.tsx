@@ -17,8 +17,30 @@ function platformIcon(platform: string) {
 function planNotice(subscription: CurrentSubscription) {
   const today = todayIso()
   const until = formatDate(subscription.validUntil)
+  const trial = subscription.kind === 'trial'
   if (subscription.state === 'future') {
     return <Alert type="info" showIcon title={`Your plan starts on ${formatDate(subscription.validFrom)}.`} />
+  }
+  if (trial && subscription.state === 'expired') {
+    return (
+      <Alert
+        type="error"
+        showIcon
+        title={`Your trial ended on ${until}.`}
+        description="Kivonex Accounts on your computers is locked. Buy a plan to continue using the software."
+      />
+    )
+  }
+  if (trial) {
+    const left = daysBetween(today, subscription.validUntil)
+    return (
+      <Alert
+        type={left <= 2 ? 'warning' : 'info'}
+        showIcon
+        title={left <= 0 ? `Your trial ends today (${until}).` : `Your trial ends in ${left} ${left === 1 ? 'day' : 'days'}, on ${until}.`}
+        description="After that day Kivonex on your computers stops, even if they are offline. Buy a plan to keep the books working for good; cloud services then follow the plan dates."
+      />
+    )
   }
   if (subscription.state === 'grace') {
     const lastDay = formatDate(addDays(subscription.validUntil, subscription.graceDays))
@@ -27,7 +49,7 @@ function planNotice(subscription: CurrentSubscription) {
         type="warning"
         showIcon
         title={`Your plan ended on ${until}.`}
-        description={`Kivonex keeps working until ${lastDay} (grace days). Renew before then to keep using it without a break.`}
+        description={`Cloud, backup/sync, remote connection and GST APIs keep working until ${lastDay} (grace days). Your books stay on your computer after that.`}
       />
     )
   }
@@ -37,7 +59,7 @@ function planNotice(subscription: CurrentSubscription) {
         type="error"
         showIcon
         title={`Your plan ended on ${until}.`}
-        description="Kivonex Accounts on your computers needs a plan to sign in. Buy a plan to continue; your company books stay on your computer."
+        description="Your books stay on your computer. Cloud, backup/sync, remote connection and GST APIs are off until you renew."
       />
     )
   }
@@ -48,7 +70,7 @@ function planNotice(subscription: CurrentSubscription) {
         type="warning"
         showIcon
         title={`Your plan ends in ${left} ${left === 1 ? 'day' : 'days'}, on ${until}.`}
-        description="Renew now: the new plan starts the day after this one ends, so you lose no days."
+        description="Renew now: the new plan starts the day after this one ends, so you lose no days. Your books stay on your computer either way."
       />
     )
   }
@@ -121,7 +143,7 @@ export function OverviewPage({ go, me }: PageProps) {
         actions={
           data && (
             <Button type="primary" icon={<ShoppingOutlined />} onClick={() => go('plans')}>
-              {subscription ? 'Renew' : 'Buy a plan'}
+              {subscription && subscription.kind !== 'trial' ? 'Renew' : 'Buy a plan'}
             </Button>
           )
         }
@@ -148,7 +170,7 @@ export function OverviewPage({ go, me }: PageProps) {
           <>
             <div className="plan-hero">
               <div className="plan-hero-main">
-                <span className="plan-eyebrow">Current plan</span>
+                <span className="plan-eyebrow">{subscription.kind === 'trial' ? 'Trial' : 'Current plan'}</span>
                 <h2 className="plan-name">
                   {subscription.planName}
                   <SubscriptionTag state={subscription.state} validFrom={subscription.validFrom} />

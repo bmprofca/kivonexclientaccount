@@ -23,6 +23,8 @@ export type CustomerAccount = {
   /** As shown: +91 73640 76458. */
   mobile: string
   email: string | null
+  tradeName: string
+  emailVerified: boolean
   billing: Billing
   createdAt: string
 }
@@ -35,6 +37,8 @@ export type CurrentSubscription = {
   /** Plan code. */
   plan: string
   planName: string
+  /** Portal signup trial, or a bought / admin-assigned plan. */
+  kind?: 'trial' | 'plan'
   validFrom: string
   validUntil: string
   graceDays: number
@@ -201,13 +205,45 @@ export function requestSignInCode(mobile: string): Promise<{ sent: true; mobile:
   return api('/v1/account/session/code', { method: 'POST', body: JSON.stringify({ mobile }) })
 }
 
-/** Sign-in, step 2: the mobile number and its code; a new number also sends the name (and email) for its account. */
-export function signIn(input: { mobile: string; code: string; name?: string; email?: string }): Promise<{ token: string; account: CustomerAccount }> {
+/** Sign-in, step 2: the mobile number and its code. A new number should register instead. */
+export function signIn(input: { mobile: string; code: string }): Promise<{ token: string; account: CustomerAccount }> {
   return api('/v1/account/session', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export type RegisterInput = { name: string; tradeName: string; mobile: string; email: string }
+
+/** Registration, step 1: a one-time code to the mobile number and another to the email. */
+export function requestRegisterCodes(input: RegisterInput): Promise<{ sent: true; mobile: string; email: string; resendAfterSeconds: number }> {
+  return api('/v1/account/register/code', { method: 'POST', body: JSON.stringify(input) })
+}
+
+/** Registration, step 2: both codes, then the account is created. */
+export function register(input: RegisterInput & { mobileCode: string; emailCode: string }): Promise<{ token: string; account: CustomerAccount }> {
+  return api('/v1/account/register', { method: 'POST', body: JSON.stringify(input) })
 }
 
 export function loadMe(): Promise<Me> {
   return api<Me>('/v1/account/me')
+}
+
+/** Change email, step 1: a code is sent to the current mobile number. */
+export function requestEmailChangeCode(email: string): Promise<{ sent: true; mobile: string; resendAfterSeconds: number }> {
+  return api('/v1/account/me/email/code', { method: 'POST', body: JSON.stringify({ email }) })
+}
+
+/** Change email, step 2: the new email and the mobile code. */
+export function confirmEmailChange(input: { email: string; code: string }): Promise<{ account: CustomerAccount }> {
+  return api('/v1/account/me/email', { method: 'POST', body: JSON.stringify(input) })
+}
+
+/** Change mobile, step 1: a code is sent to the current email. */
+export function requestMobileChangeCode(mobile: string): Promise<{ sent: true; email: string; resendAfterSeconds: number }> {
+  return api('/v1/account/me/mobile/code', { method: 'POST', body: JSON.stringify({ mobile }) })
+}
+
+/** Change mobile, step 2: the new number and the email code. */
+export function confirmMobileChange(input: { mobile: string; code: string }): Promise<{ account: CustomerAccount }> {
+  return api('/v1/account/me/mobile', { method: 'POST', body: JSON.stringify(input) })
 }
 
 /** Starts buying a plan: a Razorpay order and what Checkout needs to open for it. */

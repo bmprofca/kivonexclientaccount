@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { FileDoneOutlined, LaptopOutlined, LockOutlined, MobileOutlined, SafetyCertificateOutlined, SafetyOutlined, UserAddOutlined, WalletOutlined } from '@ant-design/icons'
-import { Alert, Button, Form, Input, type InputRef } from 'antd'
-import { ApiError, errorMessage, requestSignInCode, setToken, signIn } from '../api'
+import { useEffect, useState } from 'react'
+import { FileDoneOutlined, LaptopOutlined, LockOutlined, MailOutlined, MobileOutlined, SafetyCertificateOutlined, SafetyOutlined, UserAddOutlined, WalletOutlined } from '@ant-design/icons'
+import { Alert, Button, Form, Input } from 'antd'
+import { ApiError, errorMessage, register, requestRegisterCodes, requestSignInCode, setToken, signIn, type RegisterInput } from '../api'
 
 function Brand({ dark }: { dark?: boolean }) {
   return (
@@ -17,26 +17,27 @@ function Brand({ dark }: { dark?: boolean }) {
   )
 }
 
-type NewAccountFields = { name: string; email?: string }
+type Mode = 'signin' | 'register'
 
 /**
- * Customer sign-in: the mobile number, then the one-time code sent to it. There is no password. A number that has
- * no account yet also gives a name (and an email, if they like) on the code step, which creates the account.
+ * Customer sign-in with a mobile number and a one-time code, or registration with name, trade name, mobile and
+ * email. Registration verifies both the mobile and the email with their own codes. There is no password.
  */
 export function LoginPage({ onSignedIn }: { onSignedIn: (token: string) => void }) {
+  const [mode, setMode] = useState<Mode>('signin')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [mobile, setMobile] = useState('')
-  const [sentTo, setSentTo] = useState<string | null>(null)
   const [wait, setWait] = useState(0)
-  const [code, setCode] = useState('')
-  const [codeError, setCodeError] = useState(false)
-  // A new number: the account is made with the name given here.
-  const [newAccount, setNewAccount] = useState(false)
-  // A new set of empty code boxes (cursor in the first) after a wrong code.
   const [attempt, setAttempt] = useState(0)
-  const [details] = Form.useForm<NewAccountFields>()
-  const nameInput = useRef<InputRef>(null)
+  const [signMobile, setSignMobile] = useState('')
+  const [sentMobile, setSentMobile] = useState<string | null>(null)
+  const [mobileCode, setMobileCode] = useState('')
+  const [mobileCodeError, setMobileCodeError] = useState(false)
+  const [details] = Form.useForm<RegisterInput>()
+  const [pending, setPending] = useState<RegisterInput | null>(null)
+  const [sentEmail, setSentEmail] = useState<string | null>(null)
+  const [emailCode, setEmailCode] = useState('')
+  const [emailCodeError, setEmailCodeError] = useState(false)
 
   useEffect(() => {
     if (wait <= 0) return
@@ -44,14 +45,32 @@ export function LoginPage({ onSignedIn }: { onSignedIn: (token: string) => void 
     return () => window.clearTimeout(timer)
   }, [wait])
 
-  async function sendCode(number: string) {
+  function switchMode(next: Mode) {
+    setMode(next)
+    setError(null)
+    setWait(0)
+    setSentMobile(null)
+    setPending(null)
+    setSentEmail(null)
+    setMobileCode('')
+    setEmailCode('')
+    setMobileCodeError(false)
+    setEmailCodeError(false)
+  }
+
+  async function sendSignInCode(number: string) {
     setSubmitting(true)
     setError(null)
     try {
       const result = await requestSignInCode(number)
-      setMobile(number)
-      setSentTo(result.mobile)
-      setNewAccount(result.newAccount)
+      if (result.newAccount) {
+        details.setFieldsValue({ mobile: number })
+        switchMode('register')
+        setError('This number is new to Kivonex. Create your account with your name, trade name and email.')
+        return
+      }
+      setSignMobile(number)
+      setSentMobile(result.mobile)
       setWait(result.resendAfterSeconds)
     } catch (err) {
       setError(errorMessage(err, 'Could not send the code'))
@@ -60,52 +79,71 @@ export function LoginPage({ onSignedIn }: { onSignedIn: (token: string) => void 
     }
   }
 
-  /** Asks for the name (keeping the code typed so far): the number is new to Kivonex. */
-  function askForName(message = 'Enter your name to create your account.') {
-    setNewAccount(true)
-    // The field may only now be on screen; set its error once it is.
-    window.setTimeout(() => {
-      details.setFields([{ name: 'name', errors: [message] }])
-      nameInput.current?.focus()
-    })
-  }
-
-  async function verify(code: string) {
+  async function verifySignIn(code: string) {
     if (submitting) return
-    if (!/^\d{6}$/.test(code)) return setCodeError(true)
-    let fields: NewAccountFields | null = null
-    if (newAccount) {
-      fields = await details.validateFields().catch(() => null)
-      if (!fields) return nameInput.current?.focus()
-    }
+    if (!/^\d{6}$/.test(code)) return setMobileCodeError(true)
     setSubmitting(true)
     setError(null)
     try {
-      const result = await signIn({ mobile, code, ...(fields ? { name: fields.name.trim(), email: fields.email?.trim() || undefined } : {}) })
+      const result = await signIn({ mobile: signMobile, code })
       setToken(result.token)
       onSignedIn(result.token)
     } catch (err) {
       if (err instanceof ApiError && err.code === 'NAME_REQUIRED') {
-        // The code is right and still valid: it is sent again with the name.
-        askForName()
-      } else {
-        setError(errorMessage(err, 'Sign-in failed'))
-        setCode('')
-        setAttempt((count) => count + 1)
+        details.setFieldsValue({ mobile: signMobile })
+        switchMode('register')
+        setError('This number is new to Kivonex. Create your account with your name, trade name and email.')
+        return
       }
+      setError(errorMessage(err, 'Sign-in failed'))
+      setMobileCode('')
+      setAttempt((count) => count + 1)
     } finally {
       setSubmitting(false)
     }
   }
 
-  function reset() {
-    setSentTo(null)
+  async function sendRegisterCodes(values: RegisterInput) {
+    setSubmitting(true)
     setError(null)
-    setWait(0)
-    setCode('')
-    setNewAccount(false)
-    details.resetFields()
+    try {
+      const result = await requestRegisterCodes(values)
+      setPending(values)
+      setSentMobile(result.mobile)
+      setSentEmail(result.email)
+      setWait(result.resendAfterSeconds)
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'MOBILE_TAKEN') {
+        switchMode('signin')
+        setError(errorMessage(err, 'This number already has an account. Sign in instead.'))
+        return
+      }
+      setError(errorMessage(err, 'Could not send the codes'))
+    } finally {
+      setSubmitting(false)
+    }
   }
+
+  async function verifyRegister() {
+    if (!pending || submitting) return
+    if (!/^\d{6}$/.test(mobileCode)) return setMobileCodeError(true)
+    if (!/^\d{6}$/.test(emailCode)) return setEmailCodeError(true)
+    setSubmitting(true)
+    setError(null)
+    try {
+      const result = await register({ ...pending, mobileCode, emailCode })
+      setToken(result.token)
+      onSignedIn(result.token)
+    } catch (err) {
+      setError(errorMessage(err, 'Could not create your account'))
+      setAttempt((count) => count + 1)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const registering = mode === 'register'
+  const awaitingCodes = registering ? Boolean(pending) : Boolean(sentMobile)
 
   return (
     <div className="login">
@@ -153,32 +191,45 @@ export function LoginPage({ onSignedIn }: { onSignedIn: (token: string) => void 
       </aside>
 
       <main className="login-form">
-        <div className="login-card">
+        <div className={`login-card${registering ? ' is-register' : ''}`}>
           <div className="login-mobile-brand">
             <Brand />
           </div>
+          <div className="login-mode" role="tablist" aria-label="Sign in or create an account">
+            <button type="button" role="tab" aria-selected={!registering} className={!registering ? 'on' : ''} onClick={() => switchMode('signin')}>
+              Sign in
+            </button>
+            <button type="button" role="tab" aria-selected={registering} className={registering ? 'on' : ''} onClick={() => switchMode('register')}>
+              Create account
+            </button>
+          </div>
           <div className="login-steps" aria-hidden>
             <span className="on" />
-            <span className={sentTo ? 'on' : ''} />
+            <span className={awaitingCodes ? 'on' : ''} />
           </div>
-          <span className="login-step-icon">{sentTo ? newAccount ? <UserAddOutlined /> : <SafetyOutlined /> : <MobileOutlined />}</span>
-          <h1>{sentTo ? (newAccount ? 'Create your account' : 'Enter your code') : 'Sign in'}</h1>
-          {sentTo ? (
-            newAccount ? (
+          <span className="login-step-icon">{awaitingCodes ? registering ? <MailOutlined /> : <SafetyOutlined /> : registering ? <UserAddOutlined /> : <MobileOutlined />}</span>
+          <h1>
+            {awaitingCodes ? (registering ? 'Enter both codes' : 'Enter your code') : registering ? 'Create your account' : 'Sign in'}
+          </h1>
+          {awaitingCodes ? (
+            registering ? (
               <p>
-                <strong>{sentTo}</strong> is new to Kivonex. Enter your name and the 6-digit code we sent to it to create your account.
+                We sent a 6-digit code to <strong>{sentMobile}</strong> and another to <strong>{sentEmail}</strong>. Each works once, for 10 minutes.
               </p>
             ) : (
               <p>
-                We sent a 6-digit code to <strong>{sentTo}</strong>. It works once, for 10 minutes.
+                We sent a 6-digit code to <strong>{sentMobile}</strong>. It works once, for 10 minutes.
               </p>
             )
+          ) : registering ? (
+            <p>Enter your name, trade name, mobile number and email. We will send a one-time code to the number and another to the email.</p>
           ) : (
-            <p>Enter your mobile number. We'll send a one-time code to it. New to Kivonex? The same steps create your account.</p>
+            <p>Enter your mobile number. We'll send a one-time code to it.</p>
           )}
           {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 20 }} />}
-          {!sentTo ? (
-            <Form layout="vertical" requiredMark={false} size="large" onFinish={(values: { mobile: string }) => void sendCode(values.mobile)}>
+
+          {!registering && !sentMobile && (
+            <Form layout="vertical" requiredMark={false} size="large" onFinish={(values: { mobile: string }) => void sendSignInCode(values.mobile)}>
               <Form.Item
                 label="Mobile number"
                 name="mobile"
@@ -197,59 +248,143 @@ export function LoginPage({ onSignedIn }: { onSignedIn: (token: string) => void 
                 Send code
               </Button>
             </Form>
-          ) : (
+          )}
+
+          {!registering && sentMobile && (
             <form
               onSubmit={(event) => {
                 event.preventDefault()
-                void verify(code)
+                void verifySignIn(mobileCode)
               }}
             >
-              {newAccount && (
-                <Form form={details} component={false} layout="vertical" requiredMark={false}>
-                  <div className="login-details">
-                    <Form.Item label="Your name" name="name" rules={[{ required: true, whitespace: true, message: 'Enter your name to create your account.' }]}>
-                      <Input ref={nameInput} size="large" placeholder="As it should appear on invoices" autoComplete="name" maxLength={120} autoFocus />
-                    </Form.Item>
-                    <Form.Item label="Email (optional)" name="email" rules={[{ type: 'email', message: 'Enter a valid email, or leave it blank.' }]}>
-                      <Input size="large" placeholder="you@example.com" type="email" autoComplete="email" maxLength={200} />
-                    </Form.Item>
-                  </div>
-                </Form>
-              )}
               <div className="login-otp">
-                {newAccount && <div className="login-otp-label">6-digit code</div>}
                 <Input.OTP
                   key={attempt}
                   length={6}
                   size="large"
-                  autoFocus={!newAccount || attempt > 0}
+                  autoFocus
                   inputMode="numeric"
                   aria-label="Sign-in code"
                   disabled={submitting}
-                  status={codeError ? 'error' : undefined}
-                  value={code}
+                  status={mobileCodeError ? 'error' : undefined}
+                  value={mobileCode}
                   onInput={(cells) => {
-                    setCode(cells.join(''))
-                    setCodeError(false)
+                    setMobileCode(cells.join(''))
+                    setMobileCodeError(false)
                   }}
-                  // Six digits sign in by themselves.
-                  onChange={(value) => void verify(value)}
+                  onChange={(value) => void verifySignIn(value)}
                 />
-                {codeError && <div className="login-otp-error">Enter the 6-digit code.</div>}
+                {mobileCodeError && <div className="login-otp-error">Enter the 6-digit code.</div>}
               </div>
               <Button type="primary" size="large" htmlType="submit" block loading={submitting}>
-                {newAccount ? 'Create account' : 'Verify and sign in'}
+                Verify and sign in
               </Button>
               <div className="login-code-actions">
-                <Button type="link" onClick={() => reset()} style={{ padding: 0 }}>
+                <Button type="link" onClick={() => switchMode('signin')} style={{ padding: 0 }}>
                   Change number
                 </Button>
-                <Button type="link" disabled={wait > 0 || submitting} onClick={() => void sendCode(mobile)} style={{ padding: 0 }}>
+                <Button type="link" disabled={wait > 0 || submitting} onClick={() => void sendSignInCode(signMobile)} style={{ padding: 0 }}>
                   {wait > 0 ? `Resend in ${wait}s` : 'Resend code'}
                 </Button>
               </div>
             </form>
           )}
+
+          {registering && !pending && (
+            <Form form={details} layout="vertical" requiredMark={false} size="large" onFinish={(values) => void sendRegisterCodes(values)}>
+              <Form.Item label="Your name" name="name" rules={[{ required: true, whitespace: true, message: 'Enter your name.' }]}>
+                <Input placeholder="As it should appear on invoices" autoComplete="name" maxLength={120} autoFocus />
+              </Form.Item>
+              <Form.Item label="Trade name" name="tradeName" rules={[{ required: true, whitespace: true, message: 'Enter your trade name.' }]}>
+                <Input placeholder="Your business or firm name" autoComplete="organization" maxLength={160} />
+              </Form.Item>
+              <Form.Item
+                label="Mobile number"
+                name="mobile"
+                rules={[{ required: true, pattern: /^(\+?91[\s-]*)?[6-9](\s*-?\d){9}$/, message: 'Enter a 10-digit mobile number.' }]}
+              >
+                <Input prefix={<span className="login-prefix">+91</span>} placeholder="98765 43210" inputMode="tel" autoComplete="tel-national" maxLength={16} />
+              </Form.Item>
+              <Form.Item label="Email" name="email" rules={[{ required: true, type: 'email', message: 'Enter a valid email address.' }]}>
+                <Input placeholder="you@business.com" type="email" autoComplete="email" maxLength={200} />
+              </Form.Item>
+              <Button type="primary" htmlType="submit" block loading={submitting}>
+                Send codes
+              </Button>
+            </Form>
+          )}
+
+          {registering && pending && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                void verifyRegister()
+              }}
+            >
+              <div className="login-otp-pair">
+                <div className="login-otp">
+                  <div className="login-otp-label">Code sent to {sentMobile}</div>
+                  <Input.OTP
+                    key={`m-${attempt}`}
+                    length={6}
+                    size="large"
+                    autoFocus
+                    inputMode="numeric"
+                    aria-label="Mobile code"
+                    disabled={submitting}
+                    status={mobileCodeError ? 'error' : undefined}
+                    value={mobileCode}
+                    onInput={(cells) => {
+                      setMobileCode(cells.join(''))
+                      setMobileCodeError(false)
+                    }}
+                  />
+                  {mobileCodeError && <div className="login-otp-error">Enter the 6-digit mobile code.</div>}
+                </div>
+                <div className="login-otp">
+                  <div className="login-otp-label">Code sent to {sentEmail}</div>
+                  <Input.OTP
+                    key={`e-${attempt}`}
+                    length={6}
+                    size="large"
+                    inputMode="numeric"
+                    aria-label="Email code"
+                    disabled={submitting}
+                    status={emailCodeError ? 'error' : undefined}
+                    value={emailCode}
+                    onInput={(cells) => {
+                      setEmailCode(cells.join(''))
+                      setEmailCodeError(false)
+                    }}
+                  />
+                  {emailCodeError && <div className="login-otp-error">Enter the 6-digit email code.</div>}
+                </div>
+              </div>
+              <Button type="primary" size="large" htmlType="submit" block loading={submitting}>
+                Create account
+              </Button>
+              <div className="login-code-actions">
+                <Button
+                  type="link"
+                  onClick={() => {
+                    setPending(null)
+                    setSentMobile(null)
+                    setSentEmail(null)
+                    setMobileCode('')
+                    setEmailCode('')
+                    setError(null)
+                  }}
+                  style={{ padding: 0 }}
+                >
+                  Change details
+                </Button>
+                <Button type="link" disabled={wait > 0 || submitting} onClick={() => void sendRegisterCodes(pending)} style={{ padding: 0 }}>
+                  {wait > 0 ? `Resend in ${wait}s` : 'Resend codes'}
+                </Button>
+              </div>
+            </form>
+          )}
+
           <div className="login-secure">
             <LockOutlined /> No password. Each code works once.
           </div>
