@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { AppstoreOutlined, CreditCardOutlined, LogoutOutlined, MenuOutlined, ShoppingOutlined, UserOutlined, WalletOutlined } from '@ant-design/icons'
+import { AppstoreOutlined, CreditCardOutlined, LogoutOutlined, MenuOutlined, ReloadOutlined, ShopOutlined, ShoppingOutlined, UserAddOutlined, UserOutlined, WalletOutlined } from '@ant-design/icons'
 import { Avatar, Button, Drawer, Dropdown, Grid, Layout, Menu, type MenuProps } from 'antd'
 import { getToken, loadMe, signOut as endSession, type Me } from './api'
 import { Bone } from './components'
 import { initials, useLoad, type Loaded } from './lib'
 import { BillingPage } from './pages/BillingPage'
+import { DealerActivatePage, DealerPage, DealerRenewPage } from './pages/DealerPages'
 import { InvoicePage } from './pages/InvoicePage'
 import { LoginPage } from './pages/LoginPage'
 import { OverviewPage } from './pages/OverviewPage'
@@ -15,7 +16,7 @@ import { WalletPage } from './pages/WalletPage'
 
 const { Sider, Header, Content } = Layout
 
-export type Page = 'overview' | 'plans' | 'wallet' | 'billing' | 'invoices' | 'profile'
+export type Page = 'overview' | 'plans' | 'wallet' | 'billing' | 'invoices' | 'profile' | 'dealer' | 'dealer-activate' | 'dealer-renew'
 
 /** Opens a page, optionally one item of it (an invoice is go('invoices', paymentId)). */
 export type Go = (page: Page, sub?: string) => void
@@ -23,7 +24,8 @@ export type Go = (page: Page, sub?: string) => void
 /** What every page gets: how to open another page, and the signed-in customer (plan, computers) with reload(). */
 export type PageProps = { go: Go; sub: string; me: Loaded<Me> }
 
-type PageInfo = { title: string; section: string; icon: ReactNode; nav: boolean; render: (props: PageProps) => ReactNode }
+/** `dealer`: shown only to an account ADMIN made a dealer. */
+type PageInfo = { title: string; section: string; icon: ReactNode; nav: boolean; dealer?: boolean; render: (props: PageProps) => ReactNode }
 
 const PAGES: Record<Page, PageInfo> = {
   overview: { title: 'Overview', section: 'My account', icon: <AppstoreOutlined />, nav: true, render: (props) => <OverviewPage {...props} /> },
@@ -32,10 +34,13 @@ const PAGES: Record<Page, PageInfo> = {
   billing: { title: 'Billing', section: 'My account', icon: <CreditCardOutlined />, nav: true, render: (props) => <BillingPage {...props} /> },
   // An invoice opens from Billing; it is not in the menu.
   invoices: { title: 'Invoice', section: 'Billing', icon: <CreditCardOutlined />, nav: false, render: (props) => <InvoicePage {...props} /> },
+  dealer: { title: 'Credits', section: 'Dealer', icon: <ShopOutlined />, nav: true, dealer: true, render: (props) => <DealerPage {...props} /> },
+  'dealer-activate': { title: 'Activate account', section: 'Dealer', icon: <UserAddOutlined />, nav: true, dealer: true, render: (props) => <DealerActivatePage {...props} /> },
+  'dealer-renew': { title: 'Renew account', section: 'Dealer', icon: <ReloadOutlined />, nav: true, dealer: true, render: (props) => <DealerRenewPage {...props} /> },
   profile: { title: 'Profile', section: 'Settings', icon: <UserOutlined />, nav: true, render: (props) => <ProfilePage {...props} /> }
 }
 
-const SECTIONS = ['My account', 'Settings']
+const SECTIONS = ['My account', 'Dealer', 'Settings']
 
 /** The page in the address (/plans, /invoices/<payment id>), so a reload or a shared link opens it again. */
 function pageOf(pathname: string): Page {
@@ -49,14 +54,17 @@ function PageRoute({ page, go, me }: { page: Page; go: Go; me: Loaded<Me> }) {
   return <>{PAGES[page].render({ go, sub, me })}</>
 }
 
-const NAV: MenuProps['items'] = SECTIONS.map((section) => ({
-  type: 'group' as const,
-  key: section,
-  label: section,
-  children: (Object.keys(PAGES) as Page[])
-    .filter((key) => PAGES[key].nav && PAGES[key].section === section)
-    .map((key) => ({ key, icon: PAGES[key].icon, label: PAGES[key].title }))
-}))
+/** The menu; the Dealer section only for a dealer. */
+function navItems(dealer: boolean): MenuProps['items'] {
+  return SECTIONS.map((section) => ({
+    type: 'group' as const,
+    key: section,
+    label: section,
+    children: (Object.keys(PAGES) as Page[])
+      .filter((key) => PAGES[key].nav && PAGES[key].section === section && (dealer || !PAGES[key].dealer))
+      .map((key) => ({ key, icon: PAGES[key].icon, label: PAGES[key].title }))
+  })).filter((group) => group.children.length > 0)
+}
 
 export function App() {
   const [token, setSignedIn] = useState<string | null>(getToken())
@@ -91,6 +99,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const screens = Grid.useBreakpoint()
   const compact = !screens.lg
   const account = me.data?.account
+  const dealer = me.data?.dealer === true
 
   useEffect(() => {
     document.title = `${PAGES[page].title} · Kivonex`
@@ -122,7 +131,7 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         theme="dark"
         mode="inline"
         selectedKeys={[page === 'invoices' ? 'billing' : page]}
-        items={NAV}
+        items={navItems(dealer)}
         onClick={({ key }) => go(key as Page)}
       />
       <div className="sider-foot">
@@ -206,6 +215,14 @@ function Shell({ onSignedOut }: { onSignedOut: () => void }) {
             <Route path="/billing" element={<PageRoute page="billing" go={go} me={me} />} />
             <Route path="/invoices/:sub" element={<PageRoute page="invoices" go={go} me={me} />} />
             <Route path="/profile" element={<PageRoute page="profile" go={go} me={me} />} />
+            {/* Kept while the account loads, so a reload of a Dealer page stays on it. */}
+            {(dealer || !me.data) && (
+              <>
+                <Route path="/dealer" element={<PageRoute page="dealer" go={go} me={me} />} />
+                <Route path="/dealer-activate" element={<PageRoute page="dealer-activate" go={go} me={me} />} />
+                <Route path="/dealer-renew" element={<PageRoute page="dealer-renew" go={go} me={me} />} />
+              </>
+            )}
             <Route path="*" element={<Navigate to="/overview" replace />} />
           </Routes>
         </Content>

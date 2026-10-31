@@ -3,7 +3,7 @@ import { Alert, Button } from 'antd'
 import type { PageProps } from '../App'
 import type { Computer, CurrentSubscription } from '../api'
 import { Bone, EmptyState, ErrorNotice, ListSkeleton, PageHeader, Panel, SubscriptionTag } from '../components'
-import { addDays, computers, daysBetween, formatDate, timeAgo, todayIso } from '../lib'
+import { addDays, daysBetween, formatDate, timeAgo, todayIso } from '../lib'
 
 function platformIcon(platform: string) {
   const name = platform.toLowerCase()
@@ -189,14 +189,8 @@ export function OverviewPage({ go, me }: PageProps) {
                   <dd data-testid="valid-till">{formatDate(subscription.validUntil)}</dd>
                 </div>
                 <div>
-                  <dt>Computers allowed</dt>
-                  <dd>{subscription.devices}</dd>
-                </div>
-                <div>
-                  <dt>In use</dt>
-                  <dd>
-                    {signedIn.length} of {subscription.devices}
-                  </dd>
+                  <dt>Signed in on</dt>
+                  <dd>{signedIn.length ? signedIn.map((row) => row.name).join(', ') : 'No computer'}</dd>
                 </div>
               </dl>
             </div>
@@ -207,7 +201,7 @@ export function OverviewPage({ go, me }: PageProps) {
 
       <Panel
         title="Signed-in computers"
-        description={subscription ? `Your plan allows ${computers(subscription.devices)} at a time.` : 'Computers signed in to Kivonex Accounts with your number.'}
+        description="Your account works on one computer at a time. To move to another PC, sign out of Kivonex on this one first (it needs the internet)."
         flush
       >
         {!data ? (

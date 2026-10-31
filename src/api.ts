@@ -63,11 +63,35 @@ export type Me = {
   computers: Computer[]
   /** Online payment is set up (Razorpay keys saved in ADMIN). */
   paymentsReady: boolean
+  /** ADMIN made this account a dealer: the Dealer pages are shown. */
+  dealer?: boolean
 }
+
+export type DealerBalances = { activation: number; renewal: number }
+
+export type DealerEntry = {
+  id: string
+  kind: 'activation' | 'renewal'
+  /** + credits added by Kivonex, − taken back or used. */
+  units: number
+  balanceAfter: number
+  reason: 'credit' | 'debit' | 'activation' | 'renewal'
+  years: number | null
+  note: string
+  target: { name: string; mobile: string } | null
+  createdAt: string
+}
+
+/** A customer account as a dealer is shown it. */
+export type DealerAccount = { name: string; tradeName: string; mobile: string; activated: boolean; disabled: boolean; renewalUntil: string | null }
+
+/** Activation is bought once and includes its first year; an activated account buys Renewal after that. */
+export type PlanKind = 'activation' | 'renewal'
 
 export type Plan = {
   id: string
   code: string
+  kind: PlanKind
   name: string
   description: string
   /** Amount charged, GST included. */
@@ -93,6 +117,8 @@ export type Payment = {
   id: string
   planId: string
   planName: string
+  /** Null on payments made before plans had a type. */
+  planKind: PlanKind | null
   amountPaise: number
   currency: 'INR'
   status: PaymentStatus
@@ -256,8 +282,9 @@ export function confirmMobileChange(input: { mobile: string; code: string }): Pr
 }
 
 /** Starts buying a plan: a Razorpay order and what Checkout needs to open for it. */
-export function createOrder(planId: string): Promise<{ payment: Payment; checkout: CheckoutOptions }> {
-  return api('/v1/account/orders', { method: 'POST', body: JSON.stringify({ planId }) })
+/** `years`: a Renewal bought for several years at once (price × years); an Activation is bought once. */
+export function createOrder(planId: string, years = 1): Promise<{ payment: Payment; checkout: CheckoutOptions }> {
+  return api('/v1/account/orders', { method: 'POST', body: JSON.stringify({ planId, years }) })
 }
 
 /** Confirms a payment with what Razorpay Checkout handed back; the answer has the new subscription. */
@@ -273,6 +300,12 @@ export function failPayment(paymentId: string, reason: string): Promise<{ paymen
   return api(`/v1/account/orders/${paymentId}/fail`, { method: 'POST', body: JSON.stringify({ reason }) })
 }
 
+export const loadDealer = (): Promise<{ balances: DealerBalances; entries: DealerEntry[]; activationMonths: number; maxRenewalYears: number }> => api('/v1/dealer')
+export const lookupForDealer = (mobile: string): Promise<{ account: DealerAccount | null }> => api('/v1/dealer/lookup', { method: 'POST', body: JSON.stringify({ mobile }) })
+export const activateForCustomer = (input: { mobile: string; name: string; tradeName: string }): Promise<{ account: DealerAccount; balances: DealerBalances }> =>
+  api('/v1/dealer/activate', { method: 'POST', body: JSON.stringify(input) })
+export const renewForCustomer = (input: { mobile: string; years: number }): Promise<{ account: DealerAccount; balances: DealerBalances }> =>
+  api('/v1/dealer/renew', { method: 'POST', body: JSON.stringify(input) })
 export const loadWallet = (): Promise<WalletView> => api('/v1/account/wallet')
 export const loadWalletTransactions = (): Promise<{ transactions: WalletTransaction[] }> => api('/v1/account/wallet/transactions')
 export const loadWalletTransactionDetail = (id: string): Promise<{ transaction: WalletTransaction; usage: WalletUsageEvent | null }> => api(`/v1/account/wallet/transactions/${id}`)

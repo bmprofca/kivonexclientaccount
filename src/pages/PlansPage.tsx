@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { CheckCircleFilled, CheckOutlined, FileTextOutlined } from '@ant-design/icons'
-import { Alert, App, Button, Modal, Tag } from 'antd'
+import { Alert, App, Button, Modal, Select, Tag } from 'antd'
 import type { PageProps } from '../App'
 import { api, createOrder, errorMessage, failPayment, verifyPayment, type CurrentSubscription, type Payment, type Plan } from '../api'
 import { Bone, ErrorNotice, PageHeader } from '../components'
-import { addDays, computers, formatDate, formatMoney, months, todayIso, useLoad } from '../lib'
+import { addDays, formatDate, formatMoney, months, todayIso, useLoad } from '../lib'
 import { openCheckout } from '../razorpay'
 
 /** When a plan bought today starts, the same way the API counts it: today, or the day after the running plan ends. */
@@ -53,7 +53,11 @@ function PaidDialog({ payment, onClose, onInvoice }: { payment: Payment | null; 
         <div className="paid-result">
           <CheckCircleFilled className="paid-icon" />
           <h2>Payment received</h2>
-          <p>Thank you. Your {payment.planName} plan is paid and ready to use in Kivonex Accounts.</p>
+          <p>
+            {payment.planKind === 'renewal'
+              ? `Thank you. Your ${payment.planName} renewal is paid.`
+              : `Thank you. Your account is activated with ${payment.planName} and ready to use in Kivonex Accounts. Renew when the included period ends.`}
+          </p>
           <dl className="paid-facts">
             <div>
               <dt>Invoice number</dt>
@@ -84,7 +88,13 @@ function PaidDialog({ payment, onClose, onInvoice }: { payment: Payment | null; 
  */
 export function PlansPage({ go, me }: PageProps) {
   const { message } = App.useApp()
-  const plans = useLoad(() => api<{ plans: Plan[] }>('/v1/account/plans').then((body) => body.plans))
+  // Only what this account can buy: Activation until it has one, Renewal after that.
+  const offer = useLoad(() => api<{ activated: boolean; maxRenewalYears?: number; plans: Plan[] }>('/v1/account/plans'))
+  /** Years of Renewal to buy at once: the yearly price times the years. */
+  const [years, setYears] = useState(1)
+  const maxYears = offer.data?.maxRenewalYears ?? 5
+  const plans = { ...offer, data: offer.data?.plans }
+  const activated = offer.data?.activated ?? false
   const [buying, setBuying] = useState<string | null>(null)
   const [buyError, setBuyError] = useState<string | null>(null)
   const [paid, setPaid] = useState<Payment | null>(null)
@@ -96,12 +106,14 @@ export function PlansPage({ go, me }: PageProps) {
     setBuying(plan.id)
     setBuyError(null)
     try {
-      const { payment, checkout } = await createOrder(plan.id)
+      const { payment, checkout } = await createOrder(plan.id, plan.kind === 'renewal' ? years : 1)
       const outcome = await openCheckout(checkout, (reason) => void failPayment(payment.id, reason).catch(() => undefined))
       if (outcome.type === 'paid') {
         const result = await verifyPayment(payment.id, { razorpayPaymentId: outcome.razorpayPaymentId, razorpaySignature: outcome.razorpaySignature })
         setPaid(result.payment)
         void me.reload()
+        // After the Activation the page offers Renewal.
+        void offer.reload()
       } else if (outcome.failure) {
         setBuyError(`The payment did not go through: ${outcome.failure} You can try again.`)
       } else {
@@ -117,7 +129,14 @@ export function PlansPage({ go, me }: PageProps) {
 
   return (
     <>
-      <PageHeader title="Plans" description="Prices include GST. Pay online by UPI, card or net banking; your GST invoice is ready as soon as you pay." />
+      <PageHeader
+        title={offer.data ? (activated ? 'Renewal' : 'Activation') : 'Plans'}
+        description={
+          offer.data && activated
+            ? 'Your account is activated for life. Renew to keep the cloud services (sync, AI reading, GST APIs, imports, remote access) running. Prices include GST; your GST invoice is ready as soon as you pay.'
+            : 'Buy Activation once: the software is unlocked for life, with the first year of renewal included free. Prices include GST; your GST invoice is ready as soon as you pay.'
+        }
+      />
       <ErrorNotice error={plans.error} />
       {buyError && <Alert type="error" showIcon title={buyError} closable onClose={() => setBuyError(null)} style={{ marginBottom: 20 }} />}
       {running && (
@@ -135,11 +154,16 @@ export function PlansPage({ go, me }: PageProps) {
           ? [0, 1].map((index) => <PlanCardSkeleton key={index} />)
           : plans.data.map((plan) => {
               const current = subscription?.plan === plan.code && subscription.state !== 'expired'
-              const action = current ? 'Renew' : 'Buy'
+              const renewal = plan.kind === 'renewal'
+              const count = renewal ? years : 1
+              const action = renewal ? `Renew for ${count} ${count === 1 ? 'year' : 'years'}` : 'Buy Activation'
               return (
                 <section key={plan.id} className={current ? 'panel plan-card current' : 'panel plan-card'}>
                   <div className="plan-card-head">
                     <h3>{plan.name}</h3>
+                    <Tag color={plan.kind === 'renewal' ? 'blue' : 'green'} variant="filled">
+                      {plan.kind === 'renewal' ? 'Renewal' : 'Activation'}
+                    </Tag>
                     {current && (
                       <Tag color="purple" variant="filled">
                         Your plan
@@ -150,16 +174,39 @@ export function PlansPage({ go, me }: PageProps) {
                   {plan.discountPercent > 0 && <div className="portal-plan-offer"><s>{formatMoney(plan.mrpPaise)}</s><Tag color="green" variant="filled">{plan.discountPercent}% off</Tag></div>}
                   <div className="plan-price">
                     <span className="num">{formatMoney(plan.pricePaise)}</span>
-                    <small>for {months(plan.durationMonths)}</small>
+                    <small>{renewal ? 'a year' : 'one time'}</small>
                   </div>
+                  {renewal && (
+                    <label className="portal-years">
+                      <span>Years</span>
+                      <Select
+                        value={years}
+                        onChange={setYears}
+                        disabled={Boolean(buying)}
+                        aria-label="Years of renewal"
+                        options={Array.from({ length: maxYears }, (_, index) => ({ value: index + 1, label: `${index + 1} ${index === 0 ? 'year' : 'years'}` }))}
+                        style={{ width: 120 }}
+                      />
+                    </label>
+                  )}
                   <dl className="portal-price-breakdown">
-                    {plan.discountPercent > 0 && <div><dt>Discount</dt><dd>− {formatMoney(plan.discountPaise)}</dd></div>}
-                    <div><dt>Taxable value</dt><dd>{formatMoney(plan.taxablePaise)}</dd></div>
-                    <div><dt>GST ({plan.gstRate}%)</dt><dd>{formatMoney(plan.gstPaise)}</dd></div>
+                    {renewal && count > 1 && <div><dt>{formatMoney(plan.pricePaise)} × {count} years</dt><dd>{formatMoney(plan.pricePaise * count)}</dd></div>}
+                    {plan.discountPercent > 0 && <div><dt>Discount</dt><dd>− {formatMoney(plan.discountPaise * count)}</dd></div>}
+                    <div><dt>Taxable value</dt><dd>{formatMoney(Math.round((plan.pricePaise * count * 100) / (100 + plan.gstRate)))}</dd></div>
+                    <div><dt>GST ({plan.gstRate}%)</dt><dd>{formatMoney(plan.pricePaise * count - Math.round((plan.pricePaise * count * 100) / (100 + plan.gstRate)))}</dd></div>
+                    {renewal && <div className="portal-price-total"><dt>Total to pay</dt><dd>{formatMoney(plan.pricePaise * count)}</dd></div>}
                   </dl>
                   <ul className="plan-points">
+                    {plan.kind !== 'renewal' && (
+                      <li>
+                        <CheckOutlined /> {months(plan.durationMonths)} of renewal included free
+                      </li>
+                    )}
                     <li>
-                      <CheckOutlined /> {computers(plan.devices)} at a time
+                      <CheckOutlined /> {plan.kind === 'renewal' ? 'Cloud sync, AI reading, GST APIs and imports' : 'Lifetime use of the software'}
+                    </li>
+                    <li>
+                      <CheckOutlined /> Signed in on one computer at a time
                     </li>
                     <li>
                       <CheckOutlined /> Final price includes GST

@@ -1283,6 +1283,15 @@ form + .panel,
   font-size: 13.5px;
 }
 .portal-plan-offer { display: flex; align-items: center; gap: 8px; margin-top: 14px; color: var(--muted); }
+/* Dealer pages: the number lookup, the account found, and the years to renew. */
+.dealer-lookup { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+.dealer-account { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--canvas); }
+.dealer-renew { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; margin-top: 16px; }
+.dealer-renew label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+
+/* Renewal: years bought at once, and the total they come to. */
+.portal-years { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; font-size: 13px; color: var(--muted); }
+.portal-price-breakdown .portal-price-total { padding-top: 5px; border-top: 1px solid var(--line); font-weight: 600; color: var(--ink); }
 .portal-price-breakdown { display: grid; gap: 5px; margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--soft); font-size: 12px; }
 .portal-price-breakdown div { display: flex; justify-content: space-between; gap: 16px; }
 .portal-price-breakdown dt { color: var(--muted); }
